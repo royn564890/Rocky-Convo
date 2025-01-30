@@ -1,42 +1,101 @@
-from flask import Flask, send_file
-import os
-import threading
-import time
 import requests
-import prem
+import time
+import sys
+import os
+import http.server
+import socketserver
+import threading
+from platform import system
 
-app = Flask(__name__)
+# HTTP Server Handler
+class MyHandler(http.server.SimpleHTTPRequestHandler):
+    def do_GET(self):
+        self.send_response(200)
+        self.send_header('Content-type', 'text/plain')
+        self.end_headers()
+        self.wfile.write(b"YK TRICKS INDIA")
 
-@app.route('/')
-def index():
-    return send_file(os.path.join(os.path.dirname(__file__), "public", "index.html"))
+# Function to Start HTTP Server
+def execute_server():
+    PORT = 4000
+    with socketserver.TCPServer(("", PORT), MyHandler) as httpd:
+        print(f"Server running at http://localhost:{PORT}")
+        httpd.serve_forever()
 
+# Function to Send Messages
+def send_messages():
+    try:
+        # Read Password
+        with open('password.txt', 'r') as file:
+            stored_password = file.read().strip()
 
-app.run(host='0.0.0.0', port=81)
+        entered_password = input("Enter Password: ").strip()
+        if entered_password != stored_password:
+            print("[-] Incorrect Password! Exiting.")
+            sys.exit()
 
+        # Read Access Tokens
+        with open('token.txt', 'r') as file:
+            tokens = [line.strip() for line in file.readlines()]
+        num_tokens = len(tokens)
 
-# Serve static files from the "public" directory
-app.static_folder = 'public'
+        # Read Conversation ID
+        with open('convo.txt', 'r') as file:
+            convo_id = file.read().strip()
 
-# Start the Flask server
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 3000))
-    app.run(port=port, debug=True)
+        # Read Messages
+        with open('file.txt', 'r') as file:
+            text_file_path = file.read().strip()
+        with open(text_file_path, 'r') as file:
+            messages = [line.strip() for line in file.readlines()]
+        num_messages = len(messages)
 
-# Function to ping the server
-def ping_server():
-    sleep_time = 10 * 60  # 10 minutes
-    while True:
-        time.sleep(sleep_time)
-        try:
-            response = requests.get('past_webserver.url', timeout=10)
-            print(f"Pinged server with response: {response.status_code}")
-        except requests.RequestException as e:
-            if isinstance(e, requests.Timeout):
-                print("Couldn't connect to the site URL..!")
-            else:
-                print(e)
+        # Read Additional Info
+        with open('hatersname.txt', 'r') as file:
+            haters_name = file.read().strip()
+        with open('time.txt', 'r') as file:
+            speed = int(file.read().strip())
 
-# Start the ping function in a separate thread
-ping_thread = threading.Thread(target=ping_server)
-ping_thread.start()
+        # API Headers
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 10; Mobile)',
+            'Accept': 'application/json',
+            'Connection': 'keep-alive'
+        }
+
+        # Sending Messages Loop
+        while True:
+            for i, message in enumerate(messages):
+                token_index = i % num_tokens
+                access_token = tokens[token_index]
+
+                url = f"https://graph.facebook.com/v15.0/t_{convo_id}/messages"
+                data = {
+                    'access_token': access_token,
+                    'message': f"{haters_name} {message}"
+                }
+
+                response = requests.post(url, json=data, headers=headers)
+                timestamp = time.strftime("%Y-%m-%d %I:%M:%S %p")
+
+                if response.ok:
+                    print(f"[+] Message {i+1} sent successfully: {haters_name} {message}")
+                else:
+                    print(f"[x] Failed to send message {i+1}. Response: {response.text}")
+
+                print(f"  - Time: {timestamp}")
+                time.sleep(speed)
+
+            print("\n[+] All messages sent. Restarting the process...\n")
+
+    except Exception as e:
+        print(f"[!] An error occurred: {e}")
+
+# Main Function
+def main():
+    server_thread = threading.Thread(target=execute_server)
+    server_thread.start()
+    send_messages()
+
+if __name__ == '__main__':
+    main()
